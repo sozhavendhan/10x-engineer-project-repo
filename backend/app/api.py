@@ -4,12 +4,23 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
+
+
 from app.models import (
-    Prompt, PromptCreate, PromptUpdate,
-    Collection, CollectionCreate,
-    PromptList, CollectionList, HealthResponse,
+    Prompt,
+    PromptCreate,
+    PromptUpdate,
+    PromptPatch,
+    Collection,
+    CollectionCreate,
+    PromptList,
+    CollectionList,
+    HealthResponse,
     get_current_time
 )
+
+
+
 from app.storage import storage
 from app.utils import sort_prompts_by_date, filter_prompts_by_collection, search_prompts
 from app import __version__
@@ -70,9 +81,12 @@ def get_prompt(prompt_id: str):
     prompt = storage.get_prompt(prompt_id)
     
     # This line causes the bug - accessing attribute on None
-    if prompt.id:
-        return prompt
+    # if prompt.id:
+    #     return prompt
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found")
 
+    return prompt
 
 @app.post("/prompts", response_model=Prompt, status_code=201)
 def create_prompt(prompt_data: PromptCreate):
@@ -107,7 +121,8 @@ def update_prompt(prompt_id: str, prompt_data: PromptUpdate):
         description=prompt_data.description,
         collection_id=prompt_data.collection_id,
         created_at=existing.created_at,
-        updated_at=existing.updated_at  # BUG: Should be get_current_time()
+        #updated_at=existing.updated_at  # BUG: Should be get_current_time()
+        updated_at=get_current_time()
     )
     
     return storage.update_prompt(prompt_id, updated_prompt)
@@ -116,6 +131,31 @@ def update_prompt(prompt_id: str, prompt_data: PromptUpdate):
 # NOTE: PATCH endpoint is missing! Students need to implement this.
 # It should allow partial updates (only update provided fields)
 
+#
+@app.patch("/prompts/{prompt_id}", response_model=Prompt)
+def patch_prompt(prompt_id: str, prompt_data: PromptPatch):
+    existing = storage.get_prompt(prompt_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+
+    updates = prompt_data.model_dump(exclude_unset=True)
+
+    if "collection_id" in updates and updates["collection_id"]:
+        collection = storage.get_collection(updates["collection_id"])
+        if not collection:
+            raise HTTPException(status_code=400, detail="Collection not found")
+
+    updated_prompt = Prompt(
+        id=existing.id,
+        title=updates.get("title", existing.title),
+        content=updates.get("content", existing.content),
+        description=updates.get("description", existing.description),
+        collection_id=updates.get("collection_id", existing.collection_id),
+        created_at=existing.created_at,
+        updated_at=get_current_time()
+    )
+
+    return storage.update_prompt(prompt_id, updated_prompt)
 
 @app.delete("/prompts/{prompt_id}", status_code=204)
 def delete_prompt(prompt_id: str):
@@ -148,13 +188,23 @@ def create_collection(collection_data: CollectionCreate):
 
 @app.delete("/collections/{collection_id}", status_code=204)
 def delete_collection(collection_id: str):
-    # BUG #4: We delete the collection but don't handle the prompts!
-    # Prompts with this collection_id become orphaned with invalid reference
-    # Should either: delete the prompts, set collection_id to None, or prevent deletion
-    
-    if not storage.delete_collection(collection_id):
+    collection = storage.get_collection(collection_id)
+    if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    
-    # Missing: Handle prompts that belong to this collection!
-    
+
+    prompts_in_collection = storage.get_prompts_by_collection(collection_id)
+
+    for prompt in prompts_in_collection:
+        updated_prompt = Prompt(
+            id=prompt.id,
+            title=prompt.title,
+            content=prompt.content,
+            description=prompt.description,
+            collection_id=None,
+            created_at=prompt.created_at,
+            updated_at=get_current_time(),
+        )
+        storage.update_prompt(prompt.id, updated_prompt)
+
+    storage.delete_collection(collection_id)
     return None

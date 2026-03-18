@@ -30,6 +30,13 @@ class PromptCreate(PromptBase):
 class PromptUpdate(PromptBase):
     pass
 
+#Right now the repo has PromptCreate, PromptUpdate, and Prompt, but no partial-update model. Added PromptPatch just below PromptUpdate:
+
+class PromptPatch(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    content: Optional[str] = Field(None, min_length=1)
+    description: Optional[str] = Field(None, max_length=500)
+    collection_id: Optional[str] = None
 
 class Prompt(PromptBase):
     id: str = Field(default_factory=generate_id)
