@@ -1,5 +1,7 @@
 """FastAPI routes for PromptLab"""
 
+from datetime import timedelta
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -31,6 +33,21 @@ app = FastAPI(
     description="AI Prompt Engineering Platform",
     version=__version__
 )
+
+
+def _get_next_updated_at(existing_updated_at):
+    """Return a timestamp strictly greater than the existing update time.
+
+    Args:
+        existing_updated_at: Existing prompt update timestamp.
+
+    Returns:
+        datetime: A timestamp guaranteed to be newer than existing_updated_at.
+    """
+    candidate = get_current_time()
+    if candidate <= existing_updated_at:
+        return existing_updated_at + timedelta(microseconds=1)
+    return candidate
 
 # CORS middleware
 app.add_middleware(
@@ -161,7 +178,7 @@ def update_prompt(prompt_id: str, prompt_data: PromptUpdate):
         description=prompt_data.description,
         collection_id=prompt_data.collection_id,
         created_at=existing.created_at,
-        updated_at=get_current_time()
+        updated_at=_get_next_updated_at(existing.updated_at)
     )
     
     return storage.update_prompt(prompt_id, updated_prompt)
@@ -200,7 +217,7 @@ def patch_prompt(prompt_id: str, prompt_data: PromptPatch):
         description=updates.get("description", existing.description),
         collection_id=updates.get("collection_id", existing.collection_id),
         created_at=existing.created_at,
-        updated_at=get_current_time()
+        updated_at=_get_next_updated_at(existing.updated_at)
     )
 
     return storage.update_prompt(prompt_id, updated_prompt)
