@@ -20,12 +20,12 @@ Comprehensive documentation for every backend endpoint that PromptLab currently 
 `GET /health` verifies that the API is running and reports the current package version.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl http://localhost:8000/health
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "status": "healthy",
   "version": "0.1.0"
@@ -48,12 +48,12 @@ List prompts with optional filtering and search. Results are sorted with the new
 | `search` | string | Case-insensitive search in the prompt title and description. |
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl "http://localhost:8000/prompts?search=summary&collection_id=release-notes"
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "prompts": [
     {
@@ -75,12 +75,12 @@ curl "http://localhost:8000/prompts?search=summary&collection_id=release-notes"
 Retrieve a single prompt.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl http://localhost:8000/prompts/d417c8c0-6d1c-4aaf-bc03-7c6de0f1e3f7
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "id": "d417c8c0-6d1c-4aaf-bc03-7c6de0f1e3f7",
   "title": "Summarize release notes",
@@ -97,14 +97,14 @@ curl http://localhost:8000/prompts/d417c8c0-6d1c-4aaf-bc03-7c6de0f1e3f7
 Create a new prompt template.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl -X POST http://localhost:8000/prompts \
   -H 'Content-Type: application/json' \
   -d '{"title": "Executive summary prep", "content": "Produce a slide summary for {{input}}", "description": "Template for exec teams", "collection_id": "cb80f39e-9594-4f71-8301-d18d9c7b1c3a"}'
 ```
 
 #### Response (201)
-```json docs/API_REFERENCE.md
+```json
 {
   "id": "5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8",
   "title": "Executive summary prep",
@@ -121,14 +121,14 @@ curl -X POST http://localhost:8000/prompts \
 Replace an existing prompt. The payload must include all prompt attributes.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl -X PUT http://localhost:8000/prompts/5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8 \
   -H 'Content-Type: application/json' \
   -d '{"title": "Executive summary prep", "content": "Summarize {{input}} for leadership", "description": "Updated tone", "collection_id": "cb80f39e-9594-4f71-8301-d18d9c7b1c3a"}'
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "id": "5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8",
   "title": "Executive summary prep",
@@ -145,14 +145,14 @@ curl -X PUT http://localhost:8000/prompts/5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8 \
 Modify only the fields that are provided.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl -X PATCH http://localhost:8000/prompts/5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8 \
   -H 'Content-Type: application/json' \
   -d '{"description": "Executive tone for board review"}'
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "id": "5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8",
   "title": "Executive summary prep",
@@ -169,7 +169,7 @@ curl -X PATCH http://localhost:8000/prompts/5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8
 Delete a prompt permanently.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl -X DELETE http://localhost:8000/prompts/5b5dd8a5-1e8f-4ee2-a1e4-0c8f8c0be1b8
 ```
 
@@ -185,12 +185,12 @@ No body is returned when the delete succeeds.
 List all collections.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl http://localhost:8000/collections
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "collections": [
     {
@@ -209,12 +209,12 @@ curl http://localhost:8000/collections
 Retrieve a single collection.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl http://localhost:8000/collections/cb80f39e-9594-4f71-8301-d18d9c7b1c3a
 ```
 
 #### Response (200)
-```json docs/API_REFERENCE.md
+```json
 {
   "id": "cb80f39e-9594-4f71-8301-d18d9c7b1c3a",
   "name": "Release Notes",
@@ -228,14 +228,14 @@ curl http://localhost:8000/collections/cb80f39e-9594-4f71-8301-d18d9c7b1c3a
 Create a collection for grouping prompts.
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl -X POST http://localhost:8000/collections \
   -H 'Content-Type: application/json' \
   -d '{"name": "Release Notes", "description": "Prompts for summarizing product launches."}'
 ```
 
 #### Response (201)
-```json docs/API_REFERENCE.md
+```json
 {
   "id": "cb80f39e-9594-4f71-8301-d18d9c7b1c3a",
   "name": "Release Notes",
@@ -249,7 +249,7 @@ curl -X POST http://localhost:8000/collections \
 Delete a collection. All prompts assigned to the collection are disassociated (collection_id set to `null`).
 
 #### Request
-```bash docs/API_REFERENCE.md
+```bash
 curl -X DELETE http://localhost:8000/collections/cb80f39e-9594-4f71-8301-d18d9c7b1c3a
 ```
 
@@ -266,26 +266,26 @@ No body is returned when the delete succeeds.
 | 404 | Resource not found | `{"detail": "Prompt not found"}` or similar |
 
 ### Example: Invalid Collection on Prompt Creation
-```bash docs/API_REFERENCE.md
+```bash
 curl -X POST http://localhost:8000/prompts \
   -H 'Content-Type: application/json' \
   -d '{"title": "Bad collection", "content": "{{input}}", "collection_id": "invalid"}'
 ```
 
 #### Response (400)
-```json docs/API_REFERENCE.md
+```json
 {
   "detail": "Collection not found"
 }
 ```
 
 ### Example: Missing Prompt
-```bash docs/API_REFERENCE.md
+```bash
 curl http://localhost:8000/prompts/00000000-0000-0000-0000-000000000000
 ```
 
 #### Response (404)
-```json docs/API_REFERENCE.md
+```json
 {
   "detail": "Prompt not found"
 }
