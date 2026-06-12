@@ -75,3 +75,18 @@ def extract_variables(content: str) -> List[str]:
     pattern = r'\{\{(\w+)\}\}'
     return re.findall(pattern, content)
 
+def filter_prompts_by_tags(prompts: List[Prompt], tags: List[str]) -> List[Prompt]:
+    """Return prompts that contain ALL of the requested tags (logical AND).
+
+    Args:
+        prompts (List[Prompt]): Prompts to filter.
+        tags (List[str]): Tags that must all be present on a prompt (lowercased).
+
+    Returns:
+        List[Prompt]: Prompts matching every requested tag.
+    """
+    if not tags:
+        return prompts
+    required = {t.lower() for t in tags}
+    return [p for p in prompts if required.issubset(set(p.tags))]
+

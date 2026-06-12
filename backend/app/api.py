@@ -20,11 +20,17 @@ from app.models import (
     HealthResponse,
     get_current_time
 )
+from app.models import (
+    Tag,
+    TagCreate,
+    TagWithCount,
+    TagList,
+)
 
 
 
 from app.storage import storage
-from app.utils import sort_prompts_by_date, filter_prompts_by_collection, search_prompts
+from app.utils import sort_prompts_by_date, filter_prompts_by_collection, search_prompts, filter_prompts_by_tags
 from app import __version__
 
 
@@ -76,31 +82,32 @@ def health_check():
 @app.get("/prompts", response_model=PromptList)
 def list_prompts(
     collection_id: Optional[str] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    tags: Optional[str] = None,
 ):
-    """Return prompts optionally filtered by collection or search term.
+    """Return prompts optionally filtered by collection, search term, or tags.
 
     Args:
         collection_id (Optional[str]): Only include prompts in this collection.
         search (Optional[str]): Case-insensitive search term for titles or descriptions.
+        tags (Optional[str]): Comma-separated tag names; prompts must match all (AND).
 
     Returns:
         PromptList: Matched prompts sorted newest first.
     """
-
     prompts = storage.get_all_prompts()
-    
-    # Filter by collection if specified
+
     if collection_id:
         prompts = filter_prompts_by_collection(prompts, collection_id)
-    
-    # Search if query provided
+
     if search:
         prompts = search_prompts(prompts, search)
-    
-    # Sort by date (newest first)
+
+    if tags:
+        tag_list = [t.strip().lower() for t in tags.split(",") if t.strip()]
+        prompts = filter_prompts_by_tags(prompts, tag_list)
+
     prompts = sort_prompts_by_date(prompts, descending=True)
-    
     return PromptList(prompts=prompts, total=len(prompts))
 
 
@@ -144,6 +151,7 @@ def create_prompt(prompt_data: PromptCreate):
             raise HTTPException(status_code=400, detail="Collection not found")
     
     prompt = Prompt(**prompt_data.model_dump())
+    storage.register_tags(prompt.tags)
     return storage.create_prompt(prompt)
 
 
@@ -171,16 +179,18 @@ def update_prompt(prompt_id: str, prompt_data: PromptUpdate):
         if not collection:
             raise HTTPException(status_code=400, detail="Collection not found")
     
+    
     updated_prompt = Prompt(
         id=existing.id,
         title=prompt_data.title,
         content=prompt_data.content,
         description=prompt_data.description,
         collection_id=prompt_data.collection_id,
+        tags=prompt_data.tags,
         created_at=existing.created_at,
-        updated_at=_get_next_updated_at(existing.updated_at)
+        updated_at=_get_next_updated_at(existing.updated_at),
     )
-    
+    storage.register_tags(updated_prompt.tags)
     return storage.update_prompt(prompt_id, updated_prompt)
 
 
@@ -219,7 +229,18 @@ def patch_prompt(prompt_id: str, prompt_data: PromptPatch):
         created_at=existing.created_at,
         updated_at=_get_next_updated_at(existing.updated_at)
     )
+    updated_prompt = Prompt(
+        id=existing.id,
+        title=updates.get("title", existing.title),
+        content=updates.get("content", existing.content),
+        description=updates.get("description", existing.description),
+        collection_id=updates.get("collection_id", existing.collection_id),
+        tags=updates.get("tags", existing.tags),
+        created_at=existing.created_at,
+        updated_at=_get_next_updated_at(existing.updated_at),
+    )
 
+    storage.register_tags(updated_prompt.tags)
     return storage.update_prompt(prompt_id, updated_prompt)
 
 @app.delete("/prompts/{prompt_id}", status_code=204)
@@ -323,4 +344,59 @@ def delete_collection(collection_id: str):
         storage.update_prompt(prompt.id, updated_prompt)
 
     storage.delete_collection(collection_id)
+    return None
+
+
+# ============== Tag Endpoints ==============
+
+@app.get("/tags", response_model=TagList)
+def list_tags():
+    """Return all tags in the catalog sorted alphabetically with prompt counts.
+
+    Returns:
+        TagList: Alphabetically sorted tags and a count of referencing prompts.
+    """
+    tags = storage.get_all_tags()
+    tag_items = [
+        TagWithCount(name=t.name, count=storage.count_tag_usage(t.name), created_at=t.created_at)
+        for t in tags
+    ]
+    return TagList(tags=tag_items, total=len(tag_items))
+
+
+@app.post("/tags", response_model=Tag)
+def create_tag(tag_data: TagCreate):
+    """Register a new tag in the catalog or return the existing one.
+
+    Args:
+        tag_data (TagCreate): Payload with the tag name (normalized to lowercase).
+
+    Returns:
+        Tag: The newly created tag (201) or the existing tag (200).
+    """
+    from fastapi.responses import JSONResponse
+
+    existing = storage.get_tag(tag_data.name)
+    if existing:
+        return JSONResponse(status_code=200, content={"name": existing.name, "created_at": existing.created_at.isoformat()})
+    storage.register_tags([tag_data.name])
+    tag = storage.get_tag(tag_data.name)
+    return JSONResponse(status_code=201, content={"name": tag.name, "created_at": tag.created_at.isoformat()})
+
+
+@app.delete("/tags/{tag_name}", status_code=204)
+def delete_tag(tag_name: str):
+    """Remove a tag from the catalog and disassociate it from all prompts.
+
+    Args:
+        tag_name (str): Name of the tag to delete.
+
+    Returns:
+        None
+
+    Raises:
+        HTTPException: If the tag does not exist in the catalog.
+    """
+    if not storage.delete_tag(tag_name.lower()):
+        raise HTTPException(status_code=404, detail="Tag not found")
     return None

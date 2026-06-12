@@ -5,7 +5,7 @@ In a production environment, this would be replaced with a database.
 """
 
 from typing import Dict, List, Optional
-from app.models import Prompt, Collection
+from app.models import Prompt, Collection, Tag
 
 
 class Storage:
@@ -19,6 +19,7 @@ class Storage:
     def __init__(self):
         self._prompts: Dict[str, Prompt] = {}
         self._collections: Dict[str, Collection] = {}
+        self._tags: Dict[str, Tag] = {}
     
     # ============== Prompt Operations ==============
     
@@ -150,6 +151,69 @@ class Storage:
         """
         self._prompts.clear()
         self._collections.clear()
+        self._tags.clear()
+
+    # ============== Tag Operations ==============
+
+    def register_tags(self, tag_names: List[str]) -> None:
+        """Ensure each tag name exists in the catalog, creating it if absent.
+
+        Args:
+            tag_names (List[str]): Normalized (lowercase) tag names to register.
+
+        Returns:
+            None
+        """
+        for name in tag_names:
+            if name not in self._tags:
+                self._tags[name] = Tag(name=name)
+
+    def get_tag(self, name: str) -> Optional[Tag]:
+        """Retrieve a tag by its name.
+
+        Args:
+            name (str): Lowercase tag name.
+
+        Returns:
+            Optional[Tag]: The tag if present, otherwise None.
+        """
+        return self._tags.get(name)
+
+    def get_all_tags(self) -> List[Tag]:
+        """Return all tags in the catalog, sorted alphabetically.
+
+        Returns:
+            List[Tag]: All stored tags.
+        """
+        return sorted(self._tags.values(), key=lambda t: t.name)
+
+    def delete_tag(self, name: str) -> bool:
+        """Remove a tag from the catalog and disassociate it from all prompts.
+
+        Args:
+            name (str): Lowercase tag name to delete.
+
+        Returns:
+            bool: True if the tag existed and was removed, False otherwise.
+        """
+        if name not in self._tags:
+            return False
+        del self._tags[name]
+        for prompt in self._prompts.values():
+            if name in prompt.tags:
+                prompt.tags = [t for t in prompt.tags if t != name]
+        return True
+
+    def count_tag_usage(self, name: str) -> int:
+        """Count how many prompts reference a specific tag.
+
+        Args:
+            name (str): Lowercase tag name to count.
+
+        Returns:
+            int: Number of prompts that include the tag.
+        """
+        return sum(1 for p in self._prompts.values() if name in p.tags)
 
 
 # Global storage instance
