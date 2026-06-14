@@ -42,7 +42,7 @@ PromptLab helps teams move from scattered notes to production-ready prompt flows
 2. Create an isolated virtual environment and install the required dependencies.
 3. Run the FastAPI server locally using Uvicorn.
 
-```bash README.md
+```bash
 git clone <your-repo-url>
 cd promptlab/backend
 python -m venv .venv
@@ -55,7 +55,7 @@ Visit `http://localhost:8000/docs` to explore the Swagger UI.
 
 ### Running Tests
 
-```bash README.md
+```bash
 cd backend
 source .venv/bin/activate
 pytest tests/ -v
@@ -85,7 +85,7 @@ pytest tests/ -v
 
 ### Create a Prompt
 
-```bash README.md
+```bash
 curl -X POST http://localhost:8000/prompts \
   -H 'Content-Type: application/json' \
   -d '{"title": "Summarize sprint results", "content": "Provide a summary for {{input}}", "description": "Used for executive updates", "collection_id": null}'
@@ -93,13 +93,13 @@ curl -X POST http://localhost:8000/prompts \
 
 ### Search Prompts by Keyword
 
-```bash README.md
+```bash
 curl "http://localhost:8000/prompts?search=sprint&collection_id=release-updates"
 ```
 
 ### Partially Update a Prompt Description
 
-```bash README.md
+```bash
 curl -X PATCH http://localhost:8000/prompts/{prompt_id} \
   -H 'Content-Type: application/json' \
   -d '{"description": "Sharper tone for investor updates."}'
@@ -107,7 +107,7 @@ curl -X PATCH http://localhost:8000/prompts/{prompt_id} \
 
 ### Delete a Collection Safely
 
-```bash README.md
+```bash
 curl -X DELETE http://localhost:8000/collections/{collection_id}
 ```
 

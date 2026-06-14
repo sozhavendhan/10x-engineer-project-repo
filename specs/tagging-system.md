@@ -88,7 +88,7 @@ Returns the catalog of tags and how many prompts reference each.
 
 ### Example: POST `/tags`
 
-```bash specs/tagging-system.md
+```bash
 curl -X POST http://localhost:8000/tags \
   -H 'Content-Type: application/json' \
   -d '{"name": "experiment"}'
@@ -96,7 +96,7 @@ curl -X POST http://localhost:8000/tags \
 
 ### Example: Delete Tag
 
-```bash specs/tagging-system.md
+```bash
 curl -X DELETE http://localhost:8000/tags/experiment
 ```
 

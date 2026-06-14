@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from uuid import uuid4
+from pydantic import field_validator
 
 
 def generate_id() -> str:
@@ -40,6 +41,36 @@ class PromptBase(BaseModel):
     content: str = Field(..., min_length=1)
     description: Optional[str] = Field(None, max_length=500)
     collection_id: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_and_validate_tags(cls, v: List[str]) -> List[str]:
+        """Lowercase, deduplicate, and validate tag list.
+
+        Args:
+            v (List[str]): Raw tag list from input.
+
+        Returns:
+            List[str]: Normalized, deduplicated tags.
+
+        Raises:
+            ValueError: If any tag is empty, too long, or list exceeds 20 items.
+        """
+        normalized: List[str] = []
+        seen: set = set()
+        for tag in v:
+            if not isinstance(tag, str) or not tag.strip():
+                raise ValueError("Tag names cannot be empty or whitespace")
+            if len(tag) > 50:
+                raise ValueError(f'Tag name "{tag}" exceeds the 50-character limit')
+            lower = tag.lower()
+            if lower not in seen:
+                seen.add(lower)
+                normalized.append(lower)
+        if len(normalized) > 20:
+            raise ValueError("A prompt may have at most 20 tags")
+        return normalized
 
 
 class PromptCreate(PromptBase):
@@ -64,6 +95,35 @@ class PromptPatch(BaseModel):
     content: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = Field(None, max_length=500)
     collection_id: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_and_validate_tags(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Normalize and validate tags when provided on a patch request.
+
+        Args:
+            v (Optional[List[str]]): Tag list or None.
+
+        Returns:
+            Optional[List[str]]: Normalized tags or None.
+        """
+        if v is None:
+            return v
+        normalized: List[str] = []
+        seen: set = set()
+        for tag in v:
+            if not isinstance(tag, str) or not tag.strip():
+                raise ValueError("Tag names cannot be empty or whitespace")
+            if len(tag) > 50:
+                raise ValueError(f'Tag name "{tag}" exceeds the 50-character limit')
+            lower = tag.lower()
+            if lower not in seen:
+                seen.add(lower)
+                normalized.append(lower)
+        if len(normalized) > 20:
+            raise ValueError("A prompt may have at most 20 tags")
+        return normalized
 
 
 class Prompt(PromptBase):
@@ -152,3 +212,75 @@ class HealthResponse(BaseModel):
 
     status: str
     version: str
+
+
+# ============== Tag Models ==============
+
+class TagCreate(BaseModel):
+    """Payload for creating a new tag.
+
+    Args:
+        name (str): Tag label (1-50 characters, stored lowercase).
+    """
+
+    name: str = Field(..., min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        """Strip whitespace and lowercase the tag name.
+
+        Args:
+            v (str): Raw tag name.
+
+        Returns:
+            str: Normalized tag name.
+
+        Raises:
+            ValueError: If the name is whitespace-only.
+        """
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("Tag name cannot be empty or whitespace")
+        return stripped.lower()
+
+
+class Tag(BaseModel):
+    """Stored tag record.
+
+    Args:
+        name (str): Lowercase tag identifier.
+        created_at (datetime): When the tag was first registered.
+    """
+
+    name: str
+    created_at: datetime = Field(default_factory=get_current_time)
+
+    class Config:
+        from_attributes = True
+
+
+class TagWithCount(BaseModel):
+    """Tag record enriched with the number of prompts that reference it.
+
+    Args:
+        name (str): Lowercase tag identifier.
+        count (int): Number of prompts currently tagged with this tag.
+        created_at (datetime): When the tag was first registered.
+    """
+
+    name: str
+    count: int
+    created_at: datetime
+
+
+class TagList(BaseModel):
+    """Response payload for listing tags.
+
+    Args:
+        tags (List[TagWithCount]): Tags sorted alphabetically with prompt counts.
+        total (int): Total number of tags in the catalog.
+    """
+
+    tags: List[TagWithCount]
+    total: int
