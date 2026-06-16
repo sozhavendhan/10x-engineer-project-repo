@@ -59,7 +59,35 @@ function App() {
   }
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+
+    async function loadInitialData() {
+      try {
+        const [promptData, collectionData] = await Promise.all([
+          getPrompts(),
+          getCollections(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPrompts(promptData);
+        setCollections(collectionData);
+      } catch (err) {
+        if (!isMounted) {
+          return;
+        }
+
+        setError(err.message || "Failed to load data");
+      }
+    }
+
+    void loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   function handlePromptChange(event) {
