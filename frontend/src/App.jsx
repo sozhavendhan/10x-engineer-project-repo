@@ -3,10 +3,21 @@ import {
   createCollection,
   createPrompt,
   deletePrompt,
+  deleteCollection,
   getCollections,
   getPrompts,
   updatePrompt,
 } from "./api";
+import {
+  Layout,
+  PromptForm,
+  CollectionForm,
+  CollectionList,
+  PromptList,
+  SearchBar,
+  LoadingSpinner,
+  PromptDetail,
+} from "./components";
 import "./App.css";
 
 const emptyPromptForm = {
@@ -25,10 +36,15 @@ function App() {
   const [editingPromptId, setEditingPromptId] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [selectedCollectionFilter, setSelectedCollectionFilter] = useState(null);
+  const [selectedPromptDetail, setSelectedPromptDetail] = useState(null);
 
   async function loadData() {
     try {
       setError("");
+      setLoading(true);
       const [promptData, collectionData] = await Promise.all([
         getPrompts(),
         getCollections(),
@@ -37,6 +53,8 @@ function App() {
       setCollections(collectionData);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -52,6 +70,20 @@ function App() {
   function handleCollectionChange(event) {
     const { name, value } = event.target;
     setCollectionForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function getFilteredPrompts() {
+    return prompts.filter((prompt) => {
+      const matchesSearch =
+        prompt.title.toLowerCase().includes(searchText.toLowerCase()) ||
+        prompt.content.toLowerCase().includes(searchText.toLowerCase()) ||
+        (prompt.description && prompt.description.toLowerCase().includes(searchText.toLowerCase()));
+
+      const matchesCollection =
+        selectedCollectionFilter === null || prompt.collection_id === selectedCollectionFilter;
+
+      return matchesSearch && matchesCollection;
+    });
   }
 
   function buildPromptPayload() {
@@ -136,200 +168,113 @@ function App() {
     }
   }
 
+  async function handleDeleteCollection(id) {
+    const confirmed = window.confirm("Delete this collection? Prompts will not be deleted.");
+    if (!confirmed) return;
+
+    try {
+      setError("");
+      setMessage("");
+      await deleteCollection(id);
+      setMessage("Collection deleted successfully.");
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function handleViewPromptDetail(prompt) {
+    setSelectedPromptDetail(prompt);
+  }
+
   function getCollectionName(collectionId) {
     const collection = collections.find((item) => item.id === collectionId);
     return collection ? collection.name : "No collection";
   }
 
   return (
-    <div className="app">
-      <header className="hero">
-        <div>
-          <p className="eyebrow">PromptLab</p>
-          <h1>Prompt Engineering Workspace</h1>
-          <p>
-            Create, organize, edit, and manage prompts from a React frontend connected to the FastAPI backend.
-          </p>
-        </div>
-      </header>
-
-      {message && <div className="alert success">{message}</div>}
-      {error && <div className="alert error">{error}</div>}
+    <Layout message={message} error={error}>
+      <LoadingSpinner isLoading={loading} message="Loading data..." />
 
       <main className="layout">
-        <section className="card">
-          <h2>{editingPromptId ? "Edit Prompt" : "Create Prompt"}</h2>
+        <PromptForm
+          promptForm={promptForm}
+          collections={collections}
+          isEditing={!!editingPromptId}
+          onSubmit={handlePromptSubmit}
+          onChange={handlePromptChange}
+          onCancel={() => {
+            setEditingPromptId(null);
+            setPromptForm(emptyPromptForm);
+          }}
+        />
 
-          <form onSubmit={handlePromptSubmit} className="form">
-            <label>
-              Title
-              <input
-                name="title"
-                value={promptForm.title}
-                onChange={handlePromptChange}
-                required
-              />
-            </label>
+        <div className="card">
+          <h3>Search & Filter</h3>
+          <SearchBar
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search prompts by title, content, or description..."
+          />
 
-            <label>
-              Content
-              <textarea
-                name="content"
-                value={promptForm.content}
-                onChange={handlePromptChange}
-                rows="6"
-                required
-              />
-            </label>
-
-            <label>
-              Description
-              <input
-                name="description"
-                value={promptForm.description}
-                onChange={handlePromptChange}
-              />
-            </label>
-
-            <label>
-              Collection
-              <select
-                name="collection_id"
-                value={promptForm.collection_id}
-                onChange={handlePromptChange}
-              >
-                <option value="">No collection</option>
-                {collections.map((collection) => (
-                  <option key={collection.id} value={collection.id}>
-                    {collection.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Tags comma separated
-              <input
-                name="tags"
-                value={promptForm.tags}
-                onChange={handlePromptChange}
-                placeholder="marketing, ai, summary"
-              />
-            </label>
-
-            <div className="button-row">
-              <button type="submit">
-                {editingPromptId ? "Update Prompt" : "Create Prompt"}
-              </button>
-
-              {editingPromptId && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setEditingPromptId(null);
-                    setPromptForm(emptyPromptForm);
-                  }}
-                >
-                  Cancel Edit
-                </button>
-              )}
-            </div>
-          </form>
-        </section>
-
-        <section className="card">
-          <h2>Create Collection</h2>
-
-          <form onSubmit={handleCollectionSubmit} className="form">
-            <label>
-              Name
-              <input
-                name="name"
-                value={collectionForm.name}
-                onChange={handleCollectionChange}
-                required
-              />
-            </label>
-
-            <label>
-              Description
-              <input
-                name="description"
-                value={collectionForm.description}
-                onChange={handleCollectionChange}
-              />
-            </label>
-
-            <button type="submit">Create Collection</button>
-          </form>
-
-          <div className="collection-list">
-            <h3>Collections</h3>
-            {collections.length === 0 ? (
-              <p className="muted">No collections yet.</p>
-            ) : (
-              collections.map((collection) => (
-                <div key={collection.id} className="collection-item">
-                  <strong>{collection.name}</strong>
-                  <span>{collection.description || "No description"}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </main>
-
-      <section className="card full-width">
-        <div className="section-heading">
-          <div>
-            <h2>Prompt List</h2>
-            <p className="muted">{prompts.length} prompt(s) available</p>
-          </div>
-          <button className="secondary" onClick={loadData}>
-            Refresh
+          <h3 style={{ marginTop: "1.5rem" }}>Filter by Collection</h3>
+          <button
+            className={selectedCollectionFilter === null ? "secondary active" : "secondary"}
+            onClick={() => setSelectedCollectionFilter(null)}
+            style={{ marginBottom: "0.5rem", marginRight: "0.5rem" }}
+          >
+            All Prompts
           </button>
+          {collections.map((collection) => (
+            <button
+              key={collection.id}
+              className={selectedCollectionFilter === collection.id ? "secondary active" : "secondary"}
+              onClick={() => setSelectedCollectionFilter(collection.id)}
+              style={{ marginBottom: "0.5rem", marginRight: "0.5rem" }}
+            >
+              {collection.name}
+            </button>
+          ))}
         </div>
 
-        {prompts.length === 0 ? (
-          <p className="muted">No prompts found. Create your first prompt above.</p>
-        ) : (
-          <div className="prompt-grid">
-            {prompts.map((prompt) => (
-              <article key={prompt.id} className="prompt-card">
-                <div className="prompt-card-header">
-                  <h3>{prompt.title}</h3>
-                  <span>{getCollectionName(prompt.collection_id)}</span>
-                </div>
+        <div className="card">
+          <CollectionForm
+            collectionForm={collectionForm}
+            onChange={handleCollectionChange}
+            onSubmit={handleCollectionSubmit}
+          />
+          <CollectionList
+            collections={collections}
+            onDelete={handleDeleteCollection}
+          />
+        </div>
+      </main>
 
-                <p className="description">
-                  {prompt.description || "No description provided."}
-                </p>
+      <PromptList
+        prompts={getFilteredPrompts()}
+        collections={collections}
+        onEdit={startEdit}
+        onDelete={handleDeletePrompt}
+        onView={handleViewPromptDetail}
+        onRefresh={loadData}
+      />
 
-                <pre>{prompt.content}</pre>
-
-                {prompt.tags && prompt.tags.length > 0 && (
-                  <div className="tags">
-                    {prompt.tags.map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="prompt-actions">
-                  <button className="secondary" onClick={() => startEdit(prompt)}>
-                    Edit
-                  </button>
-                  <button className="danger" onClick={() => handleDeletePrompt(prompt.id)}>
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+      {selectedPromptDetail && (
+        <div className="card full-width">
+          <button
+            className="secondary"
+            onClick={() => setSelectedPromptDetail(null)}
+            style={{ marginBottom: "1rem" }}
+          >
+            ✕ Close Details
+          </button>
+          <PromptDetail
+            prompt={selectedPromptDetail}
+            collectionName={getCollectionName(selectedPromptDetail.collection_id)}
+          />
+        </div>
+      )}
+    </Layout>
   );
 }
 
