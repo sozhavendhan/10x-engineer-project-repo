@@ -9,8 +9,9 @@ import { request } from "./client";
  * Fetch all prompts
  * @returns {Promise<Array>} List of prompts
  */
-export function getPrompts() {
-  return request("/prompts");
+export async function getPrompts() {
+  const response = await request("/prompts");
+  return response?.prompts || [];
 }
 
 /**

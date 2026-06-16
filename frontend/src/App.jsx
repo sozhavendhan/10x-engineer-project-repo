@@ -49,10 +49,12 @@ function App() {
         getPrompts(),
         getCollections(),
       ]);
-      setPrompts(promptData);
-      setCollections(collectionData);
+      setPrompts(promptData || []);
+      setCollections(collectionData || []);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to load data");
+      setPrompts([]);
+      setCollections([]);
     } finally {
       setLoading(false);
     }
@@ -61,29 +63,33 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadInitialData() {
+    async function initializeData() {
       try {
+        setError("");
+        setLoading(true);
         const [promptData, collectionData] = await Promise.all([
           getPrompts(),
           getCollections(),
         ]);
-
-        if (!isMounted) {
-          return;
+        
+        if (isMounted) {
+          setPrompts(promptData || []);
+          setCollections(collectionData || []);
         }
-
-        setPrompts(promptData);
-        setCollections(collectionData);
       } catch (err) {
-        if (!isMounted) {
-          return;
+        if (isMounted) {
+          setError(err.message || "Failed to load data");
+          setPrompts([]);
+          setCollections([]);
         }
-
-        setError(err.message || "Failed to load data");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
-    void loadInitialData();
+    void initializeData();
 
     return () => {
       isMounted = false;
@@ -253,7 +259,7 @@ function App() {
           >
             All Prompts
           </button>
-          {collections.map((collection) => (
+          {Array.isArray(collections) && collections.map((collection) => (
             <button
               key={collection.id}
               className={selectedCollectionFilter === collection.id ? "secondary active" : "secondary"}

@@ -9,8 +9,9 @@ import { request } from "./client";
  * Fetch all collections
  * @returns {Promise<Array>} List of collections
  */
-export function getCollections() {
-  return request("/collections");
+export async function getCollections() {
+  const response = await request("/collections");
+  return response?.collections || [];
 }
 
 /**
